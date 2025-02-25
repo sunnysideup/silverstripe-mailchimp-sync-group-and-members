@@ -24,7 +24,7 @@ class GroupExtension extends Extension
             'Root.Mailchimp',
             [
                 CheckboxField::create('IncludeInMailChimp')
-                    ->setDescription('Include this group as an audience in synchronized Mailchimp lists')
+                    ->setDescription('Include this group as a tag in synchronized Mailchimp lists')
             ]
         );
     }

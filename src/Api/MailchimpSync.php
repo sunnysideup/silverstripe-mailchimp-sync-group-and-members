@@ -56,7 +56,9 @@ class MailchimpSync implements MailchimpSyncInterface
                 "lists/" . self::get_mailchimp_list_id() . "/members",
                 [
                     'email_address' => $member->Email,
-                    'status' => 'subscribed',
+                    'status' => 'pending',
+                    'merge_fields' => ['FNAME' => $member->FirstName, 'LNAME' => $member->Surname],
+                    'tags' => [],
                 ]
             );
 
@@ -65,11 +67,28 @@ class MailchimpSync implements MailchimpSyncInterface
 
     public function updateMember(Member $member): MailchimpSyncInterface
     {
+        $mailchimp = $this->MailchimpApiObject();
+        $hash = $mailchimp::subscriberHash($member->Email);
+        $response = $mailchimp
+            ->patch(
+                "lists/" . self::get_mailchimp_list_id() . "/members/" . $hash,
+                [
+                    'email_address' => $member->Email,
+                    'merge_fields' => ['FNAME' => $member->FirstName, 'LNAME' => $member->Surname],
+                    'tags' => [],
+                ]
+            );
+
         return $this;
     }
 
     public function deleteMember(Member $member): MailchimpSyncInterface
     {
+        $mailchimp = $this->MailchimpApiObject();
+        $hash = $mailchimp::subscriberHash($member->Email);
+        $response = $mailchimp
+            ->delete("lists/" . self::get_mailchimp_list_id() . "/members/" . $hash);
+
         return $this;
     }
 }
