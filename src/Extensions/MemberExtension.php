@@ -15,11 +15,7 @@ use SilverStripe\Security\Group;
 class MemberExtension extends Extension
 {
     private static $db = [
-        'IncludeInMailChimp' => 'Boolean',
-    ];
-
-    private static $defaults = [
-        'IncludeInMailChimp' => true,
+        'IncludeInMailChimp' => 'Boolean(1)',
     ];
 
     public function updateCMSFields(FieldList $fields)
