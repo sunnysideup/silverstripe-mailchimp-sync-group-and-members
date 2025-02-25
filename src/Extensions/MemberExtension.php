@@ -36,4 +36,11 @@ class MemberExtension extends Extension
             MailchimpSync::inst()->addMember($this->owner);
         }
     }
+
+    public function onBeforeDelete()
+    {
+        if ($this->owner->IncludeInMailChimp) {
+            MailchimpSync::inst()->deleteMember($this->owner);
+        }
+    }
 }
