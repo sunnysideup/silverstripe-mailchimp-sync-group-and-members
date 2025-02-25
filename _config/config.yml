@@ -1,1 +1,10 @@
-# see https://docs.silverstripe.org/en/developer_guides/configuration/configuration/
+---
+Name: mailchimp_sync_config
+---
+SilverStripe\Security\Group:
+  extensions:
+    - Sunnysideup\MailchimpSyncGroupAndMembers\Extensions\GroupExtension
+
+SilverStripe\Security\Member:
+  extensions:
+    - Sunnysideup\MailchimpSyncGroupAndMembers\Extensions\MemberExtension
