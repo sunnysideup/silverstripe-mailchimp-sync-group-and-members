@@ -15,4 +15,9 @@ class MailchimpSync
     {
         return Environment::getEnv('SS_MAILCHIMP_API_KEY');
     }
+
+    public static function get_mailchimp_list_id()
+    {
+        return Environment::getEnv('SS_MAILCHIMP_LIST_ID');
+    }
 }
