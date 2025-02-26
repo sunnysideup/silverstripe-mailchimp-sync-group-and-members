@@ -5,7 +5,9 @@ namespace Sunnysideup\MailchimpSyncGroupAndMembers\Extensions;
 use SilverStripe\Core\Extension;
 use SilverStripe\Forms\CheckboxField;
 use SilverStripe\Forms\FieldList;
+use SilverStripe\Forms\TextField;
 use SilverStripe\Security\Group;
+use Sunnysideup\MailchimpSyncGroupAndMembers\Api\MailchimpSync;
 
 /**
  * Class \Sunnysideup\MailchimpSyncGroupAndMembers\Extensions\GroupExtension
@@ -16,6 +18,7 @@ class GroupExtension extends Extension
 {
     private static $db = [
         'IncludeInMailChimp' => 'Boolean',
+        'MailchimpTagID' => 'Varchar(255)',
     ];
 
     public function updateCMSFields(FieldList $fields)
@@ -27,5 +30,28 @@ class GroupExtension extends Extension
                     ->setDescription('Include this group as a tag in synchronized Mailchimp lists')
             ]
         );
+    }
+
+    public function onBeforeWrite()
+    {
+        /**
+         * @var Group $owner
+         */
+        $owner = $this->getOwner();
+
+        if ($owner->IncludeInMailChimp) {
+            MailchimpSync::inst()->addOrUpdateGroup($owner);
+        }
+    }
+
+    public function onBeforeDelete()
+    {
+        /**
+         * @var Group $owner
+         */
+        $owner = $this->getOwner();
+        if ($owner->IncludeInMailChimp) {
+            MailchimpSync::inst()->deleteGroup($owner);
+        }
     }
 }

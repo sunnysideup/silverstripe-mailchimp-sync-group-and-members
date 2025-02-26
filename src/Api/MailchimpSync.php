@@ -8,6 +8,8 @@ use SilverStripe\Core\Config\Configurable;
 use SilverStripe\Core\Environment;
 use SilverStripe\Core\Injector\Injectable;
 use SilverStripe\Core\Injector\Injector;
+use SilverStripe\ORM\DataList;
+use SilverStripe\Security\Group;
 use SilverStripe\Security\Member;
 
 /**
@@ -73,6 +75,40 @@ class MailchimpSync implements MailchimpSyncInterface
         $response = $mailchimp
             ->delete("lists/" . self::get_mailchimp_list_id() . "/members/" . $hash);
 
+        return $this;
+    }
+
+    public function bulkAddOrUpdateMembers(DataList $members)
+    {
+        $mailchimp = $this->MailchimpApiObject();
+        $batch = $mailchimp->new_batch();
+        foreach ($members as $member) {
+            $hash = $mailchimp::subscriberHash($member->Email);
+            $batch->put(
+                strval($member->ID),
+                "lists/" . self::get_mailchimp_list_id() . "/members/" . $hash,
+                [
+                    'email_address' => $member->Email,
+                    'status_if_new' => 'pending',
+                    'merge_fields' => ['FNAME' => $member->FirstName, 'LNAME' => $member->Surname],
+                    'tags' => $member->getGroupCodes(),
+                ]
+            );
+        }
+        $result = $batch->execute();
+        return $this;
+    }
+
+    public function addOrUpdateGroup(Group $group): MailchimpSyncInterface
+    {
+        // Tag will automatically be created if it does not exist
+        $this->bulkAddOrUpdateMembers($group->Members()->filter('IncludeInMailChimp', true));
+        return $this;
+    }
+
+    public function deleteGroup(Group $group): MailchimpSyncInterface
+    {
+        // TODO: Need to get the ID of the tag in order to completely delete using the Static Segment API Endpoint
         return $this;
     }
 }
