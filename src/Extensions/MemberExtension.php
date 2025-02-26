@@ -6,6 +6,7 @@ use SilverStripe\Core\Extension;
 use SilverStripe\Forms\CheckboxField;
 use SilverStripe\Forms\FieldList;
 use SilverStripe\Security\Group;
+use SilverStripe\Security\Member;
 use Sunnysideup\MailchimpSyncGroupAndMembers\Api\MailchimpSync;
 
 /**
@@ -32,15 +33,29 @@ class MemberExtension extends Extension
 
     public function onBeforeWrite()
     {
-        if ($this->owner->IncludeInMailChimp) {
-            MailchimpSync::inst()->addMember($this->owner);
+        /**
+         * @var Member $owner
+         */
+        $owner = $this->getOwner();
+        if ($owner->IncludeInMailChimp) {
+            MailchimpSync::inst()->addOrUpdateMember($owner);
         }
     }
 
     public function onBeforeDelete()
     {
-        if ($this->owner->IncludeInMailChimp) {
-            MailchimpSync::inst()->deleteMember($this->owner);
+        /**
+         * @var Member $owner
+         */
+        $owner = $this->getOwner();
+        if ($owner->IncludeInMailChimp) {
+            MailchimpSync::inst()->deleteMember($owner);
         }
+    }
+
+    public function getGroupCodes()
+    {
+        $owner = $this->getOwner();
+        return $owner->Groups()->filter('IncludeInMailChimp', true)->column('Code');
     }
 }

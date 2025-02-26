@@ -49,36 +49,20 @@ class MailchimpSync implements MailchimpSyncInterface
         return self::$mailchimpHolder;
     }
 
-    public function addMember(Member $member): MailchimpSyncInterface
-    {
-        $response = $this->MailchimpApiObject()
-            ->post(
-                "lists/" . self::get_mailchimp_list_id() . "/members",
-                [
-                    'email_address' => $member->Email,
-                    'status' => 'pending',
-                    'merge_fields' => ['FNAME' => $member->FirstName, 'LNAME' => $member->Surname],
-                    'tags' => [],
-                ]
-            );
-
-        return $this;
-    }
-
-    public function updateMember(Member $member): MailchimpSyncInterface
+    public function addOrUpdateMember(Member $member): MailchimpSyncInterface
     {
         $mailchimp = $this->MailchimpApiObject();
         $hash = $mailchimp::subscriberHash($member->Email);
-        $response = $mailchimp
-            ->patch(
+        $response = $this->MailchimpApiObject()
+            ->put(
                 "lists/" . self::get_mailchimp_list_id() . "/members/" . $hash,
                 [
                     'email_address' => $member->Email,
+                    'status_if_new' => 'pending',
                     'merge_fields' => ['FNAME' => $member->FirstName, 'LNAME' => $member->Surname],
-                    'tags' => [],
+                    'tags' => $member->getGroupCodes(),
                 ]
             );
-
         return $this;
     }
 
