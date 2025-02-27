@@ -39,6 +39,8 @@ class MemberExtension extends Extension
         $owner = $this->getOwner();
         if ($owner->IncludeInMailChimp) {
             MailchimpSync::inst()->addOrUpdateMember($owner);
+        } else {
+            MailchimpSync::inst()->deleteMember($owner);
         }
     }
 
@@ -56,6 +58,22 @@ class MemberExtension extends Extension
     public function getGroupCodes()
     {
         $owner = $this->getOwner();
-        return $owner->Groups()->filter('IncludeInMailChimp', true)->column('Code');
+        $allGroupNames = MailchimpSync::inst()->getAllCurrentGroupTagNames();
+        $ownGroupNames = $owner->Groups()->filter('IncludeInMailChimp', true)->column('Code');
+        $tags = [];
+        foreach ($allGroupNames as $groupName) {
+            if (in_array($groupName, $ownGroupNames, true)) {
+                $tags[] = [
+                    'name' => $groupName,
+                    'status' => 'active',
+                ];
+            } else {
+                $tags[] = [
+                    'name' => $groupName,
+                    'status' => 'inactive',
+                ];
+            }
+        }
+        return $tags;
     }
 }

@@ -18,7 +18,6 @@ class GroupExtension extends Extension
 {
     private static $db = [
         'IncludeInMailChimp' => 'Boolean',
-        'MailchimpTagID' => 'Varchar(255)',
     ];
 
     public function updateCMSFields(FieldList $fields)
@@ -41,6 +40,8 @@ class GroupExtension extends Extension
 
         if ($owner->IncludeInMailChimp) {
             MailchimpSync::inst()->addOrUpdateGroup($owner);
+        } else {
+            MailchimpSync::inst()->deleteGroup($owner);
         }
     }
 
