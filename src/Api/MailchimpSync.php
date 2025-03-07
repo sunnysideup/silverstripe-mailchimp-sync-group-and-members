@@ -38,6 +38,11 @@ class MailchimpSync implements MailchimpSyncInterface
         return Environment::getEnv('SS_MAILCHIMP_LIST_ID');
     }
 
+    public static function has_subscribe_permission()
+    {
+        return Environment::getEnv('SS_MAILCHIMP_SUBSCRIBE_PERMISSION');
+    }
+
     protected static MailChimp $mailchimpHolder;
 
     protected function MailchimpApiObject(): MailChimp
@@ -54,6 +59,10 @@ class MailchimpSync implements MailchimpSyncInterface
 
     public function addOrUpdateMember(Member $member): MailchimpSyncInterface
     {
+        $statusIfNew = 'pending';
+        if (self::has_subscribe_permission()) {
+            $statusIfNew = 'subscribed';
+        }
         $mailchimp = $this->MailchimpApiObject();
         $hash = $mailchimp::subscriberHash($member->Email);
         $log = MailchimpLog::start_log($member, null, __FUNCTION__);
@@ -62,7 +71,7 @@ class MailchimpSync implements MailchimpSyncInterface
                 "lists/" . self::get_mailchimp_list_id() . "/members/" . $hash,
                 [
                     'email_address' => $member->Email,
-                    'status_if_new' => 'pending',
+                    'status_if_new' => $statusIfNew,
                     'merge_fields' => ['FNAME' => $member->FirstName, 'LNAME' => $member->Surname],
                 ]
             );
