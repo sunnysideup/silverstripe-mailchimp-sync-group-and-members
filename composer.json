@@ -37,10 +37,6 @@
     },
     "minimum-stability": "dev",
     "prefer-stable": true,
-    "bin": [
-        "bin/npm-build-mailchimp-sync-group-and-members.sh",
-        "bin/npm-watch-mailchimp-sync-group-and-members.sh"
-    ],
     "authors": [
         {
             "name": "Nicolaas Thiemen Francken",
