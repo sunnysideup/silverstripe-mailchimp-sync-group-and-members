@@ -11,36 +11,51 @@ use SilverStripe\Core\Injector\Injector;
 use SilverStripe\ORM\DataList;
 use SilverStripe\Security\Group;
 use SilverStripe\Security\Member;
+use Sunnysideup\MailchimpSyncGroupAndMembers\Extensions\GroupExtension;
 use Sunnysideup\MailchimpSyncGroupAndMembers\Model\MailchimpLog;
 
 /**
- * Class \Sunnysideup\MailchimpSyncGroupAndMembers\Extensions\GroupExtension
- *
- * @property Group|GroupExtension $owner
  */
 class MailchimpSync implements MailchimpSyncInterface
 {
     use Injectable;
     use Configurable;
 
+    protected $mailchimp;
+
     public static function inst()
     {
         return Injector::inst()->get(self::class);
     }
 
-    public static function get_mailchimp_api_key()
+    public function __construct()
+    {
+        $this->mailchimp = $this->MailchimpApiObject();
+    }
+
+    public static function get_mailchimp_api_key(): ?string
     {
         return Environment::getEnv('SS_MAILCHIMP_API_KEY');
     }
 
-    public static function get_mailchimp_list_id()
+    public static function get_mailchimp_list_id():?string
     {
         return Environment::getEnv('SS_MAILCHIMP_LIST_ID');
     }
 
-    public static function has_subscribe_permission()
+    public static function has_subscribe_permission(): bool
     {
-        return Environment::getEnv('SS_MAILCHIMP_SUBSCRIBE_PERMISSION');
+        return Environment::getEnv('SS_HAS_MAILCHIMP_SUBSCRIBE_PERMISSION') ? true : false;
+    }
+
+    public static function subscribe_permission_style(): string
+    {
+        return self::has_subscribe_permission() ? 'subscribed' : 'pending';
+    }
+
+    public static function is_ready_to_sync(): bool
+    {
+        return self::get_mailchimp_api_key() && self::get_mailchimp_list_id();
     }
 
     protected static MailChimp $mailchimpHolder;
@@ -49,22 +64,15 @@ class MailchimpSync implements MailchimpSyncInterface
     {
         if (! isset(self::$mailchimpHolder)) {
             $apiKey = self::get_mailchimp_api_key();
-            if (! $apiKey) {
-                user_error('Please add SS_MAILCHIMP_API_KEY to your .env file');
-            }
             self::$mailchimpHolder = new MailChimp($apiKey);
         }
         return self::$mailchimpHolder;
     }
 
-    public function addOrUpdateMember(Member $member): MailchimpSyncInterface
+    public function addOrUpdateMember(Member $member): static
     {
-        $statusIfNew = 'pending';
-        if (self::has_subscribe_permission()) {
-            $statusIfNew = 'subscribed';
-        }
-        $mailchimp = $this->MailchimpApiObject();
-        $hash = $mailchimp::subscriberHash($member->Email);
+        $statusIfNew = self::subscribe_permission_style();
+        $hash = MailChimp::subscriberHash($member->Email);
         $log = MailchimpLog::start_log($member, null, __FUNCTION__);
         $response = $this->MailchimpApiObject()
             ->put(
@@ -83,43 +91,40 @@ class MailchimpSync implements MailchimpSyncInterface
         return $this;
     }
 
-    public function setMemberTags(Member $member)
+    public function setMemberTags(Member $member): static
     {
-        $mailchimp = $this->MailchimpApiObject();
-        $hash = $mailchimp::subscriberHash($member->Email);
+        $hash = MailChimp::subscriberHash($member->Email);
         $log = MailchimpLog::start_log($member, null, __FUNCTION__);
         $log->endLog(
             $this->MailchimpApiObject()
                 ->post(
                     "lists/" . self::get_mailchimp_list_id() . "/members/" . $hash . "/tags",
                     [
-                        'tags' => $member->getGroupCodes(),
+                        'tags' => $member->getMailchimpGroupCodes(),
                     ]
                 )
         );
         return $this;
     }
 
-    public function deleteMember(Member $member): MailchimpSyncInterface
+    public function deleteMember(Member $member): static
     {
-        $mailchimp = $this->MailchimpApiObject();
-        $hash = $mailchimp::subscriberHash($member->Email);
+        $hash = MailChimp::subscriberHash($member->Email);
         $log = MailchimpLog::start_log($member, null, __FUNCTION__);
         $log->endLog(
-            $mailchimp
-                ->delete("lists/" . self::get_mailchimp_list_id() . "/members/" . $hash)
+            $this->mailchimp
+                ->delete('lists/' . self::get_mailchimp_list_id() . "/members/" . $hash)
         );
 
         return $this;
     }
 
-    public function bulkAddOrUpdateMembers(DataList $members, ?Group $group = null): MailchimpSyncInterface
+    public function bulkAddOrUpdateMembers(DataList $members, ?Group $group = null): static
     {
-        $mailchimp = $this->MailchimpApiObject();
-        $batch = $mailchimp->new_batch();
+        $batch = $this->mailchimp->new_batch();
         $log = MailchimpLog::start_log(null, $group, __FUNCTION__);
         foreach ($members as $member) {
-            $hash = $mailchimp::subscriberHash($member->Email);
+            $hash = MailChimp::subscriberHash($member->Email);
             $batch->put(
                 strval($member->ID),
                 "lists/" . self::get_mailchimp_list_id() . "/members/" . $hash,
@@ -133,7 +138,7 @@ class MailchimpSync implements MailchimpSyncInterface
                 strval($member->ID) . '-tags',
                 "lists/" . self::get_mailchimp_list_id() . "/members/" . $hash . "/tags",
                 [
-                    'tags' => $member->getGroupCodes(),
+                    'tags' => $member->getMailchimpGroupCodes(),
                 ]
             );
         }
@@ -142,13 +147,12 @@ class MailchimpSync implements MailchimpSyncInterface
         return $this;
     }
 
-    public function unarchiveMember(Member $member): MailchimpSyncInterface
+    public function unarchiveMember(Member $member): static
     {
-        $mailchimp = $this->MailchimpApiObject();
-        $hash = $mailchimp::subscriberHash($member->Email);
+        $hash = MailChimp::subscriberHash($member->Email);
         $log = MailchimpLog::start_log($member, null, __FUNCTION__);
         $log->endLog(
-            $mailchimp
+            $this->mailchimp
                 ->patch(
                     "lists/" . self::get_mailchimp_list_id() . "/members/" . $hash,
                     [
@@ -168,29 +172,27 @@ class MailchimpSync implements MailchimpSyncInterface
 
     public function deleteGroup(Group $group): MailchimpSyncInterface
     {
-        $mailchimp = $this->MailchimpApiObject();
         $id = $this->getGroupTagID($group);
         if ($id) {
             $log = MailchimpLog::start_log(null, $group, __FUNCTION__);
             $log->endLog(
-                $mailchimp
+                $this->mailchimp
                     ->delete("lists/" . self::get_mailchimp_list_id() . "/segments/" . $id)
             );
         }
         return $this;
     }
 
-    public function getAllCurrentGroupTagNames()
+    public function getAllCurrentGroupTagNames(): array
     {
         return Group::get()->filter('IncludeInMailChimp', true)->column('Code');
     }
 
-    public function getGroupTagID(Group $group)
+    public function getGroupTagID(Group $group): ?int
     {
-        $mailchimp = $this->MailchimpApiObject();
         $log = MailchimpLog::start_log(null, $group, __FUNCTION__);
 
-        $response = $mailchimp->get(
+        $response = $this->mailchimp->get(
             'lists/' . self::get_mailchimp_list_id() . '/tag-search',
             ['name' => $group->Code]
         );

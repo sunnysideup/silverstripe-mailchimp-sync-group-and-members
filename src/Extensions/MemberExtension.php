@@ -5,6 +5,7 @@ namespace Sunnysideup\MailchimpSyncGroupAndMembers\Extensions;
 use SilverStripe\Core\Extension;
 use SilverStripe\Forms\CheckboxField;
 use SilverStripe\Forms\FieldList;
+use SilverStripe\Forms\LiteralField;
 use SilverStripe\Security\Group;
 use SilverStripe\Security\Member;
 use Sunnysideup\MailchimpSyncGroupAndMembers\Api\MailchimpSync;
@@ -29,6 +30,17 @@ class MemberExtension extends Extension
                     ->setDescription('Include this member as a subscriber in synchronized Mailchimp lists')
             ]
         );
+        if (!MailchimpSync::is_ready_to_sync()) {
+            $fields->addFieldsToTab(
+                'Root.Mailchimp',
+                [
+                    LiteralField::create(
+                        'MailchimpNotReady',
+                        '<p>Mailchimp is not ready to sync. Please check your configuration with your developer.</p>'
+                    )
+                ]
+            );
+        }
     }
 
     public function onBeforeWrite()
@@ -36,11 +48,13 @@ class MemberExtension extends Extension
         /**
          * @var Member $owner
          */
-        $owner = $this->getOwner();
-        if ($owner->IncludeInMailChimp) {
-            MailchimpSync::inst()->addOrUpdateMember($owner);
-        } else {
-            MailchimpSync::inst()->deleteMember($owner);
+        if (MailchimpSync::is_ready_to_sync()) {
+            $owner = $this->getOwner();
+            if ($owner->IncludeInMailChimp) {
+                MailchimpSync::inst()->addOrUpdateMember($owner);
+            } else {
+                MailchimpSync::inst()->deleteMember($owner);
+            }
         }
     }
 
@@ -49,13 +63,15 @@ class MemberExtension extends Extension
         /**
          * @var Member $owner
          */
-        $owner = $this->getOwner();
-        if ($owner->IncludeInMailChimp) {
-            MailchimpSync::inst()->deleteMember($owner);
+        if (MailchimpSync::is_ready_to_sync()) {
+            $owner = $this->getOwner();
+            if ($owner->IncludeInMailChimp) {
+                MailchimpSync::inst()->deleteMember($owner);
+            }
         }
     }
 
-    public function getGroupCodes()
+    public function getMailchimpGroupCodes()
     {
         $owner = $this->getOwner();
         $allGroupNames = MailchimpSync::inst()->getAllCurrentGroupTagNames();
